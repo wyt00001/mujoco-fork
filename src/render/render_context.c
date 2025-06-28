@@ -1359,8 +1359,6 @@ static void makeTexture(const mjModel* m, mjrContext* con) {
   }
 }
 
-
-
 // (re) upload texture to GPU
 void mjr_uploadTexture(const mjModel* m, const mjrContext* con, int texid) {
   int w = m->tex_width[texid];
@@ -1451,7 +1449,6 @@ void mjr_uploadTexture(const mjModel* m, const mjrContext* con, int texid) {
     glDisable(GL_TEXTURE_CUBE_MAP);
   }
 }
-
 
 
 // allocate buffers for skins, copy constants
