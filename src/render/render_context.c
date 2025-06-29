@@ -360,11 +360,18 @@ static void addVert(float x, float y, float z, float sclz, struct vertbuf* buf) 
   memcpy(buf->vert2, buf->vert3, 3*sizeof(float));
   buf->vert3[0] = x;
   buf->vert3[1] = y;
-  buf->vert3[2] = z*sclz;
-  buf->nvert++;
+  if (z != mjMAXVAL) {
+    buf->vert3[2] = z*sclz;
+    buf->nvert++;
+  } else {
+    buf->vert3[2] = mjMAXVAL;
+    buf->nvert++;
+    return;
+  }
 
   // triangle ready
-  if (buf->nvert >= 3) {
+  if (buf->nvert >= 3 && buf->vert1[2] != mjMAXVAL &&
+      buf->vert2[2] != mjMAXVAL && buf->vert3[2] != mjMAXVAL) {
     // compensate for alternating orientation
     if (buf->nvert%2) {
       mjr_makeNormal(normal, buf->vert1, buf->vert2, buf->vert3);
@@ -442,34 +449,42 @@ void mjr_uploadHField(const mjModel* m, const mjrContext* con, int hfieldid) {
   glBegin(GL_QUADS);
   for (int r=0; r < nr-1; r++) {
     // left
-    glNormal3f(-1, 0, 0);
-    glVertex3f(-sz[0], sz[1]*((r+1)/height-1.0f), -sz[3]);
-    glVertex3f(-sz[0], sz[1]*((r+0)/height-1.0f), -sz[3]);
-    glVertex3f(-sz[0], sz[1]*((r+0)/height-1.0f), data[(r+0)*nc]*sz[2]);
-    glVertex3f(-sz[0], sz[1]*((r+1)/height-1.0f), data[(r+1)*nc]*sz[2]);
+    if (data[(r+0)*nc] != mjMAXVAL && data[(r+1)*nc] != mjMAXVAL) {
+      glNormal3f(-1, 0, 0);
+      glVertex3f(-sz[0], sz[1]*((r+1)/height-1.0f), -sz[3]);
+      glVertex3f(-sz[0], sz[1]*((r+0)/height-1.0f), -sz[3]);
+      glVertex3f(-sz[0], sz[1]*((r+0)/height-1.0f), data[(r+0)*nc]*sz[2]);
+      glVertex3f(-sz[0], sz[1]*((r+1)/height-1.0f), data[(r+1)*nc]*sz[2]);
+    }
 
     // right
-    glNormal3f(+1, 0, 0);
-    glVertex3f(+sz[0], sz[1]*((r+0)/height-1.0f), -sz[3]);
-    glVertex3f(+sz[0], sz[1]*((r+1)/height-1.0f), -sz[3]);
-    glVertex3f(+sz[0], sz[1]*((r+1)/height-1.0f), data[(r+1)*nc + nc-1]*sz[2]);
-    glVertex3f(+sz[0], sz[1]*((r+0)/height-1.0f), data[(r+0)*nc + nc-1]*sz[2]);
+    if (data[(r+1)*nc + nc-1] != mjMAXVAL && data[(r+0)*nc + nc-1] != mjMAXVAL) {
+      glNormal3f(+1, 0, 0);
+      glVertex3f(+sz[0], sz[1]*((r+0)/height-1.0f), -sz[3]);
+      glVertex3f(+sz[0], sz[1]*((r+1)/height-1.0f), -sz[3]);
+      glVertex3f(+sz[0], sz[1]*((r+1)/height-1.0f), data[(r+1)*nc + nc-1]*sz[2]);
+      glVertex3f(+sz[0], sz[1]*((r+0)/height-1.0f), data[(r+0)*nc + nc-1]*sz[2]);
+    }
   }
 
   for (int c=0; c < nc-1; c++) {
     // front
-    glNormal3f(0, -1, 0);
-    glVertex3f(sz[0]*((c+0)/width-1.0f), -sz[1], -sz[3]);
-    glVertex3f(sz[0]*((c+1)/width-1.0f), -sz[1], -sz[3]);
-    glVertex3f(sz[0]*((c+1)/width-1.0f), -sz[1], data[c+1]*sz[2]);
-    glVertex3f(sz[0]*((c+0)/width-1.0f), -sz[1], data[c]*sz[2]);
+    if (data[c+1] != mjMAXVAL && data[c] != mjMAXVAL) {
+      glNormal3f(0, -1, 0);
+      glVertex3f(sz[0]*((c+0)/width-1.0f), -sz[1], -sz[3]);
+      glVertex3f(sz[0]*((c+1)/width-1.0f), -sz[1], -sz[3]);
+      glVertex3f(sz[0]*((c+1)/width-1.0f), -sz[1], data[c+1]*sz[2]);
+      glVertex3f(sz[0]*((c+0)/width-1.0f), -sz[1], data[c]*sz[2]);
+    }
 
     // back
-    glNormal3f(0, +1, 0);
-    glVertex3f(sz[0]*((c+1)/width-1.0f), +sz[1], -sz[3]);
-    glVertex3f(sz[0]*((c+0)/width-1.0f), +sz[1], -sz[3]);
-    glVertex3f(sz[0]*((c+0)/width-1.0f), +sz[1], data[(nr-1)*nc + c]*sz[2]);
-    glVertex3f(sz[0]*((c+1)/width-1.0f), +sz[1], data[(nr-1)*nc + c+1]*sz[2]);
+    if (data[(nr-1)*nc + c] != mjMAXVAL && data[(nr-1)*nc + c+1] != mjMAXVAL) {
+      glNormal3f(0, +1, 0);
+      glVertex3f(sz[0]*((c+1)/width-1.0f), +sz[1], -sz[3]);
+      glVertex3f(sz[0]*((c+0)/width-1.0f), +sz[1], -sz[3]);
+      glVertex3f(sz[0]*((c+0)/width-1.0f), +sz[1], data[(nr-1)*nc + c]*sz[2]);
+      glVertex3f(sz[0]*((c+1)/width-1.0f), +sz[1], data[(nr-1)*nc + c+1]*sz[2]);
+    }
   }
 
   // recompute for bottom drawing: different number of grid points
@@ -895,7 +910,7 @@ static void setVertexHaze(float* v, float az, float h, float r) {
 
 // truncated cone for haze rendering
 static void haze(int nSlice, float r, const float* rgba) {
-  // compute elevation h for transparency transition point
+  // compute elevation h for transparancy transition point
   float alpha = atan2f(1, r);
   float beta = (float)(0.75*mjPI) - alpha;
   float h = sqrtf(0.5f) * r * sinf(alpha) / sinf(beta);
@@ -1050,23 +1065,19 @@ static void makeShadow(const mjModel* m, mjrContext* con) {
   }
   glBindFramebuffer(GL_FRAMEBUFFER, con->shadowFBO);
 
-  // Create a shadow depth texture in TEXTURE1 and explicitly select an int24
-  // depth buffer. A depth stencil format is used because that appears to be
-  // more widely supported (MacOS does not support GL_DEPTH_COMPONENT24). Using
-  // a fixed format makes it easier to choose glPolygonOffset parameters that
-  // result in reasonably consistent and artifact free shadows across platforms.
+  // create shadow depth texture: in TEXTURE1
   glGenTextures(1, &con->shadowTex);
   glActiveTexture(GL_TEXTURE1);
   glEnable(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, con->shadowTex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8,
-               con->shadowSize, con->shadowSize, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+               con->shadowSize, con->shadowSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_GEQUAL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
   glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_TEXTURE_MODE, GL_INTENSITY);
   glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR);
   glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_EYE_LINEAR);
@@ -1130,14 +1141,11 @@ static void makeOff(mjrContext* con) {
     mju_error("Could not allocate offscreen depth and stencil buffer");
   }
   glBindRenderbuffer(GL_RENDERBUFFER, con->offDepthStencil);
-
-  GLenum depth_buffer_format =
-      mjGLAD_GL_ARB_depth_buffer_float ? GL_DEPTH32F_STENCIL8 : GL_DEPTH24_STENCIL8;
   if (con->offSamples) {
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, con->offSamples, depth_buffer_format,
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, con->offSamples, GL_DEPTH24_STENCIL8,
                                      con->offWidth, con->offHeight);
   } else {
-    glRenderbufferStorage(GL_RENDERBUFFER, depth_buffer_format, con->offWidth, con->offHeight);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, con->offWidth, con->offHeight);
   }
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
                             GL_RENDERBUFFER, con->offDepthStencil);
@@ -1176,7 +1184,7 @@ static void makeOff(mjrContext* con) {
       mju_error("Could not allocate offscreen depth and stencil buffer_r");
     }
     glBindRenderbuffer(GL_RENDERBUFFER, con->offDepthStencil_r);
-    glRenderbufferStorage(GL_RENDERBUFFER, depth_buffer_format, con->offWidth, con->offHeight);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, con->offWidth, con->offHeight);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
                               GL_RENDERBUFFER, con->offDepthStencil_r);
 
@@ -1298,44 +1306,6 @@ static void makeFont(mjrContext* con, int fontscale) {
   }
 }
 
-// make materials, just for those that have textures
-static void makeMaterial(const mjModel* m, mjrContext* con) {
-  memset(con->mat_texid, -1, sizeof(con->mat_texid));
-  memset(con->mat_texuniform, 0, sizeof(con->mat_texuniform));
-  memset(con->mat_texrepeat, 0, sizeof(con->mat_texrepeat));
-  if (!m->nmat || !m->ntex) {
-    return;
-  }
-
-  if (m->nmat >= mjMAXMATERIAL-1) {
-    mju_error("Maximum number of materials is %d, got %d", mjMAXMATERIAL, m->nmat);
-  }
-  for (int i=0; i < m->nmat; i++) {
-    if (m->mat_texid[i*mjNTEXROLE + mjTEXROLE_RGB] >= 0) {
-      for (int j=0; j < mjNTEXROLE; j++) {
-        con->mat_texid[i*mjNTEXROLE + j] = m->mat_texid[i*mjNTEXROLE + j];
-      }
-      con->mat_texuniform[i] = m->mat_texuniform[i];
-      con->mat_texrepeat[2*i] = m->mat_texrepeat[2*i];
-      con->mat_texrepeat[2*i+1] = m->mat_texrepeat[2*i+1];
-    }
-  }
-  // find skybox texture
-  for (int i=0; i < m->ntex; i++) {
-    if (m->tex_type[i] == mjTEXTURE_SKYBOX) {
-      if (m->nmat >= mjMAXMATERIAL-2) {
-        mju_error("With skybox, maximum number of materials is %d, got %d",
-                  mjMAXMATERIAL-1, m->nmat);
-      }
-      for (int j=0; j < mjNTEXROLE; j++) {
-        con->mat_texid[mjNTEXROLE * (mjMAXMATERIAL-1) + j] = -1;
-      }
-      con->mat_texid[mjNTEXROLE * (mjMAXMATERIAL-1) + mjTEXROLE_RGB] = i;
-
-      break;
-    }
-  }
-}
 
 
 // make textures
@@ -1358,6 +1328,8 @@ static void makeTexture(const mjModel* m, mjrContext* con) {
     mjr_uploadTexture(m, con, i);
   }
 }
+
+
 
 // (re) upload texture to GPU
 void mjr_uploadTexture(const mjModel* m, const mjrContext* con, int texid) {
@@ -1384,21 +1356,8 @@ void mjr_uploadTexture(const mjModel* m, const mjrContext* con, int texid) {
     glTexGenfv(GL_T, GL_OBJECT_PLANE, plane);
 
     // assign data
-    int type = 0;
-    int internaltype = 0;
-    if (m->tex_nchannel[texid] == 3) {
-      type = GL_RGB;
-      internaltype = (m->tex_colorspace[texid] == mjCOLORSPACE_SRGB) ? GL_SRGB8_EXT : GL_RGB;
-    } else if (m->tex_nchannel[texid] == 4) {
-      type = GL_RGBA;
-      internaltype = (m->tex_colorspace[texid] == mjCOLORSPACE_SRGB) ? GL_SRGB8_ALPHA8_EXT : GL_RGBA;
-    } else {
-      mju_error("Number of channels not supported: %d", m->tex_nchannel[texid]);
-    }
-
-    glTexImage2D(GL_TEXTURE_2D, 0, internaltype, m->tex_width[texid],
-                 m->tex_height[texid], 0, type, GL_UNSIGNED_BYTE,
-                 m->tex_data + m->tex_adr[texid]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, m->tex_width[texid], m->tex_height[texid], 0,
+                 GL_RGB, GL_UNSIGNED_BYTE, m->tex_rgb + m->tex_adr[texid]);
 
     // generate mipmaps
     glGenerateMipmap(GL_TEXTURE_2D);
@@ -1432,7 +1391,7 @@ void mjr_uploadTexture(const mjModel* m, const mjrContext* con, int texid) {
     if (m->tex_width[texid] == m->tex_height[texid]) {
       for (int i=0; i < 6; i++) {
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X+i, 0, GL_RGB, w, w, 0,
-                     GL_RGB, GL_UNSIGNED_BYTE, m->tex_data + m->tex_adr[texid]);
+                     GL_RGB, GL_UNSIGNED_BYTE, m->tex_rgb + m->tex_adr[texid]);
       }
     }
 
@@ -1440,7 +1399,7 @@ void mjr_uploadTexture(const mjModel* m, const mjrContext* con, int texid) {
     else {
       for (int i=0; i < 6; i++) {
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X+i, 0, GL_RGB, w, w, 0,
-                     GL_RGB, GL_UNSIGNED_BYTE, m->tex_data + m->tex_adr[texid] + i*3*w*w);
+                     GL_RGB, GL_UNSIGNED_BYTE, m->tex_rgb + m->tex_adr[texid] + i*3*w*w);
       }
     }
 
@@ -1449,6 +1408,7 @@ void mjr_uploadTexture(const mjModel* m, const mjrContext* con, int texid) {
     glDisable(GL_TEXTURE_CUBE_MAP);
   }
 }
+
 
 
 // allocate buffers for skins, copy constants
@@ -1590,6 +1550,7 @@ void mjr_makeContext_offSize(const mjModel* m, mjrContext* con, int fontscale,
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
+  // free previous context
   mjr_freeContext(con);
 
   // no model: offscreen and font only
@@ -1637,7 +1598,6 @@ void mjr_makeContext_offSize(const mjModel* m, mjrContext* con, int fontscale,
   // make everything
   makeOff(con);
   makeShadow(m, con);
-  makeMaterial(m, con);
   makeTexture(m, con);
   makePlane(m, con);
   makeMesh(m, con);
@@ -1662,9 +1622,6 @@ void mjr_makeContext_offSize(const mjModel* m, mjrContext* con, int fontscale,
 
   // set default color pixel format for mjr_readPixels
   con->readPixelFormat = GL_RGB;
-
-  // set default depth mapping for mjr_readPixels
-  con->readDepthMap = mjDEPTH_ZERONEAR;
 }
 
 
@@ -1728,17 +1685,8 @@ void mjr_addAux(int index, int width, int height, int samples, mjrContext* con) 
   // check max size
   int maxSize = 0;
   glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &maxSize);
-  if (width > maxSize) {
-    mju_error(
-        "Auxiliary buffer width exceeds maximum allowed by OpenGL "
-        "implementation: %d > %d",
-        width, maxSize);
-  }
-  if (height > maxSize) {
-    mju_error(
-        "Auxiliary buffer height exceeds maximum allowed by OpenGL "
-        "implementation: %d > %d",
-        height, maxSize);
+  if (width > maxSize || height > maxSize) {
+    mju_error("Auxiliary buffer size exceeds maximum allowed by OpenGL implementation");
   }
 
   // clamp samples request
@@ -1870,7 +1818,7 @@ void mjr_freeContext(mjrContext* con) {
 
 
 // resize offscreen buffers
-void mjr_resizeOffscreen(int width, int height, mjrContext* con) {
+MJAPI void mjr_resizeOffscreen(int width, int height, mjrContext* con) {
   if (con->offWidth == width && con->offHeight == height) {
     return;
   }
@@ -1897,10 +1845,10 @@ void mjr_resizeOffscreen(int width, int height, mjrContext* con) {
 
   glBindRenderbuffer(GL_RENDERBUFFER, con->offDepthStencil);
   if (con->offSamples) {
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, con->offSamples, GL_DEPTH32F_STENCIL8,
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, con->offSamples, GL_DEPTH24_STENCIL8,
                                      con->offWidth, con->offHeight);
   } else {
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH32F_STENCIL8, con->offWidth, con->offHeight);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, con->offWidth, con->offHeight);
   }
 
   if (con->offSamples) {
@@ -1908,6 +1856,6 @@ void mjr_resizeOffscreen(int width, int height, mjrContext* con) {
     glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, con->offWidth, con->offHeight);
 
     glBindRenderbuffer(GL_RENDERBUFFER, con->offDepthStencil_r);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH32F_STENCIL8, con->offWidth, con->offHeight);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, con->offWidth, con->offHeight);
   }
 }
